@@ -1,6 +1,7 @@
 const express = require("express");
 const db = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
+const notesRoutes = require("./routes/notesRoutes.js");
 const app = express();
 
 const verifyToken = require("./middlewares/verifyToken.js");
@@ -14,13 +15,7 @@ app.get("/health", (req, res) => {
   });
 });
 
-app.get("/api/protected", verifyToken, (req, res) => {
-  res.status(200).json({
-    message: "You are authenticated",
-    user: req.user,
-  });
-});
-
 app.use("/api/auth", authRoutes);
+app.use("/api", notesRoutes);
 
 module.exports = app;
