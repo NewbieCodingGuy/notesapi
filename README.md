@@ -1,6 +1,6 @@
-# 🔗 URL Shortener API
+# 📝 Notes API
 
-A production-grade REST API built with Node.js, Express, and MySQL that allow user to register/login and then create,update,get and delete notes.
+A production-grade REST API built with Node.js, Express, and MySQL where users can register, log in, and privately manage their own notes. Each user's notes are completely isolated — no user can access another user's data.
 
 ---
 
@@ -15,11 +15,11 @@ A production-grade REST API built with Node.js, Express, and MySQL that allow us
   - [Database Setup](#database-setup)
   - [Environment Variables](#environment-variables)
   - [Running the Server](#running-the-server)
+- [Authentication Flow](#authentication-flow)
 - [API Reference](#api-reference)
   - [Health Check](#health-check)
-  - [Shorten a URL](#shorten-a-url)
-  - [Redirect to Original URL](#redirect-to-original-url)
-  - [Get URL Stats](#get-url-stats)
+  - [Auth Endpoints](#auth-endpoints)
+  - [Notes Endpoints](#notes-endpoints)
 - [Error Handling](#error-handling)
 - [Key Design Decisions](#key-design-decisions)
 
@@ -27,57 +27,57 @@ A production-grade REST API built with Node.js, Express, and MySQL that allow us
 
 ## ✨ Features
 
-- Allows user to register/login.
-- Verify correct user using JWT.
-- Users can create note, update a note by its id, get a note by its id, and delete a note by its id.
-- User B cannot access User A's notes as every user has its private notes.
+- User registration and login with secure password hashing
+- Stateless authentication using JWT
+- Full CRUD operations for personal notes
+- Private note ownership — users can only access their own notes
 - Input validation with meaningful error messages
-- Race condition safe with database-level unique constraints
 - Clean layered architecture — routes, controllers, services, middleware
 
 ---
 
 ## 🛠 Tech Stack
 
-| Layer          | Technology        |
-| -------------- | ----------------- |
-| Runtime        | Node.js           |
-| Framework      | Express.js        |
-| Database       | MySQL             |
-| DB Driver      | mysql2            |
-| Validation     | express-validator |
-| Config         | dotenv            |
-| Dev Server     | nodemon           |
-| Authentication | JWT               |
+| Layer            | Technology        |
+| ---------------- | ----------------- |
+| Runtime          | Node.js           |
+| Framework        | Express.js        |
+| Database         | MySQL             |
+| DB Driver        | mysql2            |
+| Password Hashing | bcryptjs          |
+| Authentication   | jsonwebtoken      |
+| Validation       | express-validator |
+| Config           | dotenv            |
+| Dev Server       | nodemon           |
 
 ---
 
 ## 📁 Project Structure
 
 ```
-url-shortener/
+notes-api/
 ├── src/
 │   ├── config/
-│   │   └── db.js              # MySQL connection pool
+│   │   └── db.js                # MySQL connection pool
 │   ├── controllers/
-│   │   └── authController.js  # Authentication Request/response handling
-│   │   └── notesController.js # Notes Request/response handling
+│   │   ├── authController.js    # Auth request/response handling
+│   │   └── notesController.js   # Notes request/response handling
 │   ├── middlewares/
-│   │   ├── validate.js        # Validation runner middleware
-│   │   └── authValidation.js  # Authentication specific validation rules
-│   │   └── notesValidation.js # Note specific validation rules
-│   │   └── verifyToken.js     # JWT verification middleware
+│   │   ├── validate.js          # Validation runner middleware
+│   │   ├── authValidation.js    # Auth-specific validation rules
+│   │   ├── notesValidation.js   # Notes-specific validation rules
+│   │   └── verifyToken.js       # JWT verification middleware
 │   ├── routes/
-│   │   └── authRoutes.js      # Authentication Route definitions
-│   │   └── notesRoutes.js     # Notes Route definitions
+│   │   ├── authRoutes.js        # Auth route definitions
+│   │   └── notesRoutes.js       # Notes route definitions
 │   ├── services/
-│   │   └── authService.js     # Auth-related Business logic and DB queries
-│   │   └── notesService.js    # Note-related Business logic and DB queries
-│   └── app.js                 # Express app setup
-├── .env                       # Environment variables (not committed)
+│   │   ├── authService.js       # Auth business logic and DB queries
+│   │   └── notesService.js      # Notes business logic and DB queries
+│   └── app.js                   # Express app setup
+├── .env                         # Environment variables (not committed)
 ├── .gitignore
 ├── package.json
-└── server.js                  # Entry point
+└── server.js                    # Entry point
 ```
 
 ---
@@ -99,8 +99,8 @@ Make sure you have the following installed on your machine:
 1. **Clone the repository**
 
 ```bash
-git clone https://github.com/NewbieCodingGuy/notesapi.git
-cd notesapi
+git clone https://github.com/your-username/notes-api.git
+cd notes-api
 ```
 
 2. **Install dependencies**
@@ -121,23 +121,22 @@ CREATE DATABASE notes_api;
 USE notes_api;
 
 CREATE TABLE users (
-   id INT AUTO_INCREMENT PRIMARY KEY,
-   name VARCHAR(100) NOT NULL,
-   email VARCHAR(150) NOT NULL UNIQUE,
-   password VARCHAR(255) NOT NULL,
-   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  email VARCHAR(150) NOT NULL UNIQUE,
+  password VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE notes (
-   id INT AUTO_INCREMENT PRIMARY KEY,
-   user_id INT NOT NULL,
-   title VARCHAR(255) NOT NULL,
-   content TEXT NOT NULL,
-   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  content TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
-
 ```
 
 ---
@@ -150,7 +149,7 @@ Create a `.env` file in the root of the project:
 PORT=3000
 DB_HOST=localhost
 DB_USER=root
-DB_PASSWORD=password
+DB_PASSWORD=your_mysql_password
 DB_NAME=notes_api
 JWT_SECRET=your_super_secret_key_change_this_in_production
 JWT_EXPIRES_IN=15m
@@ -183,6 +182,40 @@ Server running on port 3000
 
 ---
 
+## 🔐 Authentication Flow
+
+This API uses JWT (JSON Web Tokens) for stateless authentication. Here is how to authenticate:
+
+**Step 1 — Register an account**
+
+```
+POST /api/auth/register
+```
+
+**Step 2 — Log in to receive a token**
+
+```
+POST /api/auth/login
+```
+
+Copy the `token` value from the response.
+
+**Step 3 — Send the token with every protected request**
+
+Add the following header to all notes requests:
+
+```
+Authorization: Bearer <your_token_here>
+```
+
+**Step 4 — Token expiry**
+
+Tokens expire after 15 minutes. When expired, log in again to receive a new token. Any request with an expired token returns `401 Unauthorized`.
+
+> ⚠️ Never share your token. It identifies you to the API and grants full access to your notes.
+
+---
+
 ## 📡 API Reference
 
 ### Health Check
@@ -203,9 +236,11 @@ GET /health
 
 ---
 
-### Create a User
+### Auth Endpoints
 
-Create a new user. If the user already exists, returns the error message.
+#### Register
+
+Create a new user account.
 
 ```
 POST /api/auth/register
@@ -215,9 +250,9 @@ POST /api/auth/register
 
 ```json
 {
-  "name": "Sol",
-  "email": "sol@example.com",
-  "password": "123sol"
+  "name": "John Doe",
+  "email": "john@example.com",
+  "password": "secret123"
 }
 ```
 
@@ -227,26 +262,143 @@ POST /api/auth/register
 {
   "message": "Account created successfully",
   "user": {
-    "id": 4,
-    "name": "Sol",
-    "email": "sol@example.com"
+    "id": 1,
+    "name": "John Doe",
+    "email": "john@example.com"
   }
 }
 ```
 
-**Validation Errors — 409 Conflict**
+**Response — 409 Conflict** _(email already registered)_
 
 ```json
 {
-  "error": "Email already in use!"
+  "error": "Email already in use"
+}
+```
+
+**Response — 422 Unprocessable Entity** _(validation failed)_
+
+```json
+{
+  "errors": [
+    { "field": "email", "message": "Must be a valid email address" },
+    { "field": "password", "message": "Password must be at least 6 characters" }
+  ]
 }
 ```
 
 ---
 
-### Create a Note
+#### Login
 
-Create a note for the logged in user
+Log in and receive a JWT access token.
+
+```
+POST /api/auth/login
+```
+
+**Request Body**
+
+```json
+{
+  "email": "john@example.com",
+  "password": "secret123"
+}
+```
+
+**Response — 200 OK**
+
+```json
+{
+  "message": "Logged in successfully",
+  "token": "eyJhbGciOiJIUzI1NiJ9..."
+}
+```
+
+**Response — 401 Unauthorized** _(wrong credentials)_
+
+```json
+{
+  "error": "Invalid email or password"
+}
+```
+
+---
+
+### Notes Endpoints
+
+> All notes endpoints require the `Authorization: Bearer <token>` header.
+
+---
+
+#### Get All Notes
+
+Retrieve all notes belonging to the authenticated user.
+
+```
+GET /api/notes
+```
+
+**Response — 200 OK**
+
+```json
+{
+  "message": "All Notes Fetched Successfully",
+  "notes": [
+    {
+      "id": 1,
+      "user_id": 1,
+      "title": "My First Note",
+      "content": "This is the content of my first note.",
+      "created_at": "2026-03-18T06:49:56.000Z",
+      "updated_at": "2026-03-18T06:49:56.000Z"
+    }
+  ]
+}
+```
+
+> Returns an empty array `[]` if the user has no notes. This is not an error.
+
+---
+
+#### Get Note by ID
+
+Retrieve a single note by its ID. Only returns the note if it belongs to the authenticated user.
+
+```
+GET /api/notes/:id
+```
+
+**Response — 200 OK**
+
+```json
+{
+  "message": "Note fetched successfully",
+  "note": {
+    "id": 1,
+    "user_id": 1,
+    "title": "My First Note",
+    "content": "This is the content of my first note.",
+    "created_at": "2026-03-18T06:49:56.000Z",
+    "updated_at": "2026-03-18T06:49:56.000Z"
+  }
+}
+```
+
+**Response — 404 Not Found** _(note doesn't exist or belongs to another user)_
+
+```json
+{
+  "error": "No note exist with this id!"
+}
+```
+
+---
+
+#### Create Note
+
+Create a new note for the authenticated user.
 
 ```
 POST /api/notes
@@ -256,8 +408,8 @@ POST /api/notes
 
 ```json
 {
-  "title": "Sol First Note",
-  "content": "This is Sol's first note in this app"
+  "title": "My First Note",
+  "content": "This is the content of my first note."
 }
 ```
 
@@ -267,130 +419,72 @@ POST /api/notes
 {
   "message": "Note created successfully",
   "note": {
-    "id": 5,
-    "userId": 4,
-    "title": "Sol First Note",
-    "content": "This is Sol's first note in this app"
+    "id": 1,
+    "userId": 1,
+    "title": "My First Note",
+    "content": "This is the content of my first note."
   }
 }
 ```
 
 ---
 
-### Get Note By Id
+#### Update Note
 
-Retrieve a note by its id.
-
-```
-GET /api/notes/5
-```
-
-**Response — 200 OK**
-
-```json
-{
-  "message": "Note fetched successfully",
-  "note": {
-    "id": 5,
-    "user_id": 4,
-    "title": "Sol First Note",
-    "content": "This is Sol's first note in this app",
-    "created_at": "2026-03-18T06:49:56.000Z",
-    "updated_at": "2026-03-18T06:49:56.000Z"
-  }
-}
-```
-
-### Get all Notes for a user (User's private note and not other user's note)
-
-Get all notes of a user
+Update the title and content of an existing note. Only works if the note belongs to the authenticated user.
 
 ```
-GET /api/notes
-```
-
-**Response — 200 Fetched**
-
-```json
-{
-  "message": "All Notes Fetched Successfully",
-  "notes": [
-    {
-      "id": 5,
-      "user_id": 4,
-      "title": "Sol First Note",
-      "content": "This is Sol's first note in this app",
-      "created_at": "2026-03-18T06:49:56.000Z",
-      "updated_at": "2026-03-18T06:49:56.000Z"
-    },
-    {
-      "id": 6,
-      "user_id": 4,
-      "title": "Sol Second Note",
-      "content": "This is Sol's second note in this app",
-      "created_at": "2026-03-18T07:03:53.000Z",
-      "updated_at": "2026-03-18T07:03:53.000Z"
-    }
-  ]
-}
-```
-
-### Update a Note by its ID
-
-Update a note for the logged in user by the notes id
-
-```
-PUT /api/notes/6
+PUT /api/notes/:id
 ```
 
 **Request Body**
 
 ```json
 {
-  "title": "Updated Sol's Second Note",
-  "content": "Updated Content For Sol's Second Note"
+  "title": "Updated Title",
+  "content": "Updated content for this note."
 }
 ```
 
-**Response — 200 Updated**
+**Response — 200 OK**
 
 ```json
 {
-  "message": "Note successfully updated!",
-  "note": {
-    "fieldCount": 0,
-    "affectedRows": 1,
-    "insertId": 0,
-    "info": "Rows matched: 1  Changed: 1  Warnings: 0",
-    "serverStatus": 2,
-    "warningStatus": 0,
-    "changedRows": 1
-  }
+  "message": "Note successfully updated!"
 }
 ```
 
-### Delete a Note by its ID
-
-Delete a note for the logged in user by the notes id
-
-```
-DELETE /api/notes/6
-```
-
-**Response — 200 Deleted**
+**Response — 404 Not Found**
 
 ```json
 {
-  "message": "Note deleted successfully",
-  "note": {
-    "fieldCount": 0,
-    "affectedRows": 1,
-    "insertId": 0,
-    "info": "",
-    "serverStatus": 2,
-    "warningStatus": 0,
-    "changedRows": 0
-  }
+  "error": "Note not found"
+}
+```
+
+---
+
+#### Delete Note
+
+Delete a note by its ID. Only works if the note belongs to the authenticated user.
+
+```
+DELETE /api/notes/:id
+```
+
+**Response — 200 OK**
+
+```json
+{
+  "message": "Note deleted successfully"
+}
+```
+
+**Response — 404 Not Found**
+
+```json
+{
+  "error": "Note not found"
 }
 ```
 
@@ -398,17 +492,21 @@ DELETE /api/notes/6
 
 ## ⚠️ Error Handling
 
-All endpoints follow a consistent error response format:
+All endpoints return consistent error responses in this format:
 
-| Status Code | Meaning                                                    |
-| ----------- | ---------------------------------------------------------- |
-| 200         | Success — resource fetched                                 |
-| 201         | Success — resource created                                 |
-| 302         | Redirect — following short URL                             |
-| 400         | Bad Request — malformed request                            |
-| 404         | Not Found — resource does not exist                        |
-| 422         | Unprocessable Entity — validation failed                   |
-| 500         | Internal Server Error — something went wrong on the server |
+```json
+{ "error": "Description of what went wrong" }
+```
+
+| Status Code | Meaning                                                         |
+| ----------- | --------------------------------------------------------------- |
+| 200         | Success — resource fetched or action completed                  |
+| 201         | Success — resource created                                      |
+| 401         | Unauthorized — missing, invalid, or expired token               |
+| 404         | Not Found — resource does not exist or belongs to another user  |
+| 409         | Conflict — resource already exists (e.g. duplicate email)       |
+| 422         | Unprocessable Entity — request understood but validation failed |
+| 500         | Internal Server Error — something went wrong on the server      |
 
 ---
 
@@ -417,14 +515,23 @@ All endpoints follow a consistent error response format:
 **Layered Architecture**
 Routes, controllers, services, and middleware each have a single responsibility. Business logic lives exclusively in the service layer — controllers only handle HTTP input and output.
 
+**Stateless JWT Authentication**
+No sessions are stored on the server. The JWT token carries the user's identity and is verified on every request. This approach scales horizontally — any number of servers can verify the same token without sharing state.
+
+**Password Hashing with bcrypt**
+Passwords are hashed using bcrypt with 10 salt rounds before storage. The original password is never stored or recoverable. Even if the database is compromised, passwords remain protected.
+
+**Resource-Level Authorization**
+Every notes query filters by both the note ID and the authenticated user's ID. A user requesting another user's note receives a `404` — not a `403`. This reveals nothing about whether the resource exists at all.
+
 **Connection Pooling**
-Uses `mysql2` connection pool with a limit of 10 connections. This allows concurrent requests to be handled efficiently without overwhelming the database.
+Uses `mysql2` connection pool with a limit of 10 connections. Pre-opened connections are reused across requests, avoiding the overhead of creating a new connection on every request.
 
 **Parameterized Queries**
-All database queries use `?` placeholders to prevent SQL injection attacks — never string concatenation.
-
-**Input Handling**
-Before inserting a new data, the service checks if it already exists.
+All database queries use `?` placeholders — never string concatenation. This prevents SQL injection attacks at the database driver level.
 
 **Validation Middleware**
-Input validation is handled at the middleware layer using `express-validator` before the request ever reaches the controller. Controllers can safely assume the request is clean.
+Input validation runs at the middleware layer before requests reach the controller. Controllers can safely assume the incoming data is clean and valid.
+
+**Foreign Key with CASCADE Delete**
+The `notes.user_id` column references `users.id` with `ON DELETE CASCADE`. Deleting a user automatically removes all their notes — no orphaned data, enforced at the database level.
