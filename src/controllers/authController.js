@@ -27,11 +27,11 @@ const register = async (req, res) => {
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    const token = await authService.loginUser({ email, password });
+    const result = await authService.loginUser({ email, password });
 
     return res.status(200).json({
       message: "User logged in successfully",
-      token,
+      token: result.token,
     });
   } catch (err) {
     if (err.statusCode) {
