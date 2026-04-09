@@ -1,6 +1,11 @@
 const request = require("supertest");
 const app = require("../app.js");
 
+afterAll(async () => {
+  const pool = require("../config/db");
+  await pool.end();
+});
+
 describe("POST /api/auth/register", () => {
   it("should register a new user", async () => {
     const res = await request(app)
