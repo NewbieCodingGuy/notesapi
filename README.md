@@ -1,3 +1,5 @@
+![Tests](https://github.com/NewbieCodingGuy/notesapi/actions/workflows/ci.yml/badge.svg)
+
 # 📝 Notes API
 
 A production-grade REST API built with Node.js, Express, and MySQL where users can register, log in, and privately manage their own notes. Each user's notes are completely isolated — no user can access another user's data.
