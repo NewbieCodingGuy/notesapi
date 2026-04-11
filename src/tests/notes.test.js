@@ -1,11 +1,6 @@
 const request = require("supertest");
 const app = require("../app.js");
 
-afterAll(async () => {
-  const pool = require("../config/db.js");
-  await pool.end();
-});
-
 // Helper — register and login, return token
 const getToken = async () => {
   const email = `notes${Date.now()}@example.com`;
